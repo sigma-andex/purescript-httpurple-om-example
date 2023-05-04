@@ -7,6 +7,7 @@
   , "maybe"
   , "prelude"
   , "record"
+  , "record-studio"
   , "transformers"
   , "yoga-om"
   ]
