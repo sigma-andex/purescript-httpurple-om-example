@@ -19,22 +19,28 @@ derive instance Generic Route _
 type User = String
 type UserApi = { getUser :: Aff (Maybe User) }
 
-authenticator
-  :: forall route requestWithoutUser requestWithUser furtherCtx furtherCtxRL exception
-   
-  -- our middleware is generic with respect to the context and exceptions
-  -- i.e. can work with routers of any context and any exception
-  . Nub (RequestR route requestWithUser) (RequestR route requestWithUser) -- technical requirement
-  => Union requestWithoutUser (user :: Maybe String) requestWithUser -- our middleware extends a request without user to a request with user
+withToken
+  :: forall route requestWithoutUser requestWithUser furtherCtx exception
+   . Nub (RequestR route requestWithUser) (RequestR route requestWithUser)
+  => Union requestWithoutUser (token :: Maybe String) requestWithUser
+  => (ExtRequest route requestWithUser -> Om furtherCtx exception Response)
+  -> ExtRequest route requestWithoutUser
+  -> Om furtherCtx exception Response
+withToken router request = do
+  router $ merge request { token: Just "token-123" }
+
+withUser
+  :: forall route requestWithoutToken requestWithToken requestWithUser furtherCtx furtherCtxRL exception
+   . Union requestWithoutToken (token :: Maybe String) requestWithToken -- our middleware extends a request without user to a request with user
+  => Nub (RequestR route requestWithUser) (RequestR route requestWithUser)
+  => Union requestWithToken (user :: Maybe String) requestWithUser -- our middleware extends a request without user to a request with user
   => RowToList furtherCtx furtherCtxRL -- technical requirement
   => KeysRL furtherCtxRL -- technical requirement
   => Union furtherCtx (userApi :: UserApi) (userApi :: UserApi | furtherCtx) -- this says that the ctx of our authenticator needs a userApi
   => (ExtRequest route requestWithUser -> Om { | furtherCtx } exception Response)
-  -- the router that expects a request with user
-  -- note that we removed the userApi from the ctx, since our router doesn't need the userApi anymore. If we wanted, we could leave it in the ctx.
-  -> ExtRequest route requestWithoutUser -- our authenticator expects a request without user, because we are going to add the user
+  -> ExtRequest route requestWithToken -- our authenticator expects a request without user, because we are going to add the user
   -> Om { userApi :: UserApi | furtherCtx } exception Response -- our authenticator runs in an Om that expects the userApi in its ctx
-authenticator router request = do
+withUser router request = do
   { userApi } <- Reader.ask
   maybeUser <- liftAff userApi.getUser
   Om.expandCtx $ router $ merge request { user: maybeUser }
@@ -53,7 +59,7 @@ main = do
     { route
     , router:
         -- we wrap our basic request handler in the authenticator, thus giving it access to the Maybe User
-        authenticator router
+        withToken (withUser router)
           -- then we run the Om, giving it the previously created userAPi
           >>> Om.runOm { userApi }
             {
@@ -63,5 +69,5 @@ main = do
     }
   where
   -- A basic router running in Om, so you can additionally give it dependencies in the Om ctx, like further APIs
-  router :: ExtRequest Route (user :: Maybe User) -> Om {} () Response
-  router { route: Hello, user } = ok $ "hello " <> fromMaybe "Unknown" user
+  router :: ExtRequest Route (token :: Maybe String, user :: Maybe User) -> Om {} () Response
+  router { route: Hello, user, token } = ok $ "hello " <> fromMaybe "Unknown" user <> ", I'm using token " <> fromMaybe "Unknown" token
