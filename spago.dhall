@@ -9,6 +9,7 @@
   , "record"
   , "record-studio"
   , "transformers"
+  , "typelevel-prelude"
   , "yoga-om"
   ]
 , packages = ./packages.dhall
