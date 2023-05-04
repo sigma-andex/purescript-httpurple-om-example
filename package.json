@@ -1,0 +1,17 @@
+{
+  "name": "purescript-httpurple-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx spago build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT-0",
+  "dependencies": {
+    "purescript": "^0.15.9",
+    "spago": "^0.20.9"
+  }
+}
